@@ -18,9 +18,11 @@ const orderId = ref(null)
 const createOrder = async () => {
   try {
     isCreating.value = true
+    const todayDate = new Date().toISOString()
     const { data } = await axios.post(`https://bec8d07c9da99357.mokky.dev/orders`, {
       items: cart.value,
-      totalPrice: props.totalPrice.value,
+      totalPrice: props.totalPrice,
+      createdAt: todayDate,
     })
 
     cart.value = []

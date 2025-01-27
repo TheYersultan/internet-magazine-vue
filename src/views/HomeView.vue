@@ -61,16 +61,20 @@ const addToFavorite = async (item) => {
   try {
     if (!item.isFavorite) {
       const obj = { item_id: item.id }
-      item.isFavorite = true
       const { data } = await axios.post(`https://bec8d07c9da99357.mokky.dev/favorites`, obj)
+      item.isFavorite = true
       item.favoriteId = data.id
     } else {
-      item.isFavorite = false
-      await axios.delete(`https://bec8d07c9da99357.mokky.dev/favorites/${item.favoriteId}`)
-      item.favoriteId = null
+      if (item.favoriteId) {
+        await axios.delete(`https://bec8d07c9da99357.mokky.dev/favorites/${item.favoriteId}`)
+        item.isFavorite = false
+        item.favoriteId = null
+      } else {
+        console.error(`Cannot delete favorite: favoriteId is undefined for item with id${item.id}`)
+      }
     }
 
-    await fetchItems()
+    await fetchFavorites()
   } catch (error) {
     console.log(error)
   }
@@ -82,14 +86,10 @@ const fetchFavorites = async () => {
     items.value = items.value.map((item) => {
       const favorite = favorites.find((favorite) => favorite.item_id === item.id)
 
-      if (!favorite) {
-        return item
-      }
-
       return {
         ...item,
-        isFavorite: true,
-        favoriteId: favorite.id,
+        isFavorite: !!favorite,
+        favoriteId: favorite ? favorite.id : null,
       }
     })
   } catch (error) {
@@ -110,14 +110,14 @@ const fetchItems = async () => {
     }
 
     const { data } = await axios.get(`https://bec8d07c9da99357.mokky.dev/items`, { params })
-    const favoriteIds = items.value.filter((item) => item.isFavorite).map((item) => item.id)
 
-    items.value = data.map((obj) => ({
-      ...obj,
-      isFavorite: favoriteIds.includes(obj.id),
-      favoriteId: favoriteIds.includes(obj.id) ? obj.favoriteId : null,
-      isAdded: cart.value.some((cartItem) => cartItem.id === obj.id),
+    items.value = data.map((item) => ({
+      ...item,
+      isFavorite: false,
+      favoriteId: null,
+      isAdded: cart.value.some((cartItem) => cartItem.id === item.id),
     }))
+    await fetchFavorites()
   } catch (error) {
     console.log(error)
   }

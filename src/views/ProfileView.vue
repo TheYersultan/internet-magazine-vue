@@ -48,6 +48,12 @@
             <div class="text-lg font-semibold text-gray-800">Total: {{ order.totalPrice }} тг</div>
           </div>
 
+          <!-- Order Date and Time -->
+          <div class="text-sm text-gray-500 mb-4">
+            <strong>Order Date:</strong> {{ formatDate(order.createdAt) }}
+            {{ formatTime(order.createdAt) }}
+          </div>
+
           <!-- Order Items -->
           <div class="space-y-4">
             <div
@@ -133,6 +139,21 @@ export default {
       } catch (error) {
         console.error('Error fetching orders:', error)
       }
+    },
+    formatDate(date) {
+      if (!date) return 'N/A'
+      return new Date(date).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      })
+    },
+    formatTime(date) {
+      if (!date) return 'N/A'
+      return new Date(date).toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+      })
     },
   },
 }
