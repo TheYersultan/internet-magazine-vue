@@ -19,7 +19,6 @@ const visibleFavoriteButton = Boolean(props.onClickAdd)
   >
     <!-- Like Icon -->
     <div
-      v-if="visibleFavoriteButton"
       class="absolute top-4 right-4 w-10 h-10 sm:w-12 sm:h-12 bg-white rounded-full flex items-center justify-center shadow-md z-10 transition-transform transform hover:scale-110 hover:shadow-lg"
     >
       <img
