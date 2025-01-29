@@ -26,6 +26,8 @@ const createOrder = async () => {
     })
 
     cart.value = []
+    // localStorage.setItem('cart', JSON.stringify([]))
+
     orderId.value = data.id
   } catch (error) {
     console.log(error)

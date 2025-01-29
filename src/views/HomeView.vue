@@ -27,6 +27,14 @@ const paginatedItems = computed(() => {
 
 const totalPages = computed(() => Math.ceil(items.value.length / itemsPerPage))
 
+const visiblePages = computed(() => {
+  const range = 2
+  const start = Math.max(1, currentPage.value - range)
+  const end = Math.min(totalPages.value, currentPage.value + range)
+
+  return Array.from({ length: end - start + 1 }, (_, i) => start + i)
+})
+
 const changePage = (page) => {
   if (page > 0 && page <= totalPages.value) {
     currentPage.value = page
@@ -46,6 +54,7 @@ const onClickAddPlus = (item) => {
     removeFromCart(item)
   }
 
+  // localStorage.setItem('cart', JSON.stringify(cart.value))
   console.log(cart)
 }
 
@@ -73,8 +82,6 @@ const addToFavorite = async (item) => {
         console.error(`Cannot delete favorite: favoriteId is undefined for item with id${item.id}`)
       }
     }
-
-    await fetchFavorites()
   } catch (error) {
     console.log(error)
   }
@@ -117,7 +124,6 @@ const fetchItems = async () => {
       favoriteId: null,
       isAdded: cart.value.some((cartItem) => cartItem.id === item.id),
     }))
-    await fetchFavorites()
   } catch (error) {
     console.log(error)
   }
@@ -136,10 +142,10 @@ onMounted(async () => {
   await fetchItems()
   await fetchFavorites()
 
-  items.value = items.value.map((item) => ({
-    ...item,
-    isAdded: cart.value.some((cartItem) => cartItem.id === item.id),
-  }))
+  // items.value = items.value.map((item) => ({
+  //   ...item,
+  //   isAdded: cart.value.some((cartItem) => cartItem.id === item.id),
+  // }))
 })
 
 // Save filters to localStorage whenever they change
@@ -149,6 +155,16 @@ watch(
     const { searchQuery, ...otherFilters } = newFilters
     localStorage.setItem('filters', JSON.stringify(otherFilters))
     fetchItems()
+  },
+  { deep: true },
+)
+watch(
+  cart,
+  () => {
+    items.value = items.value.map((item) => ({
+      ...item,
+      isAdded: cart.value.some((cartItem) => cartItem.id === item.id),
+    }))
   },
   { deep: true },
 )
@@ -211,17 +227,37 @@ watch(
     />
   </div>
 
-  <!-- Пагинация -->
+  <!-- Pagination Controls -->
   <div class="flex justify-center mt-8 space-x-2">
+    <!-- First Page Button -->
+    <button
+      @click="changePage(1)"
+      :disabled="currentPage === 1"
+      class="px-4 py-2 rounded-lg shadow transition duration-300"
+      :class="{
+        'bg-gray-200 text-gray-600 hover:bg-gray-300': currentPage !== 1,
+        'bg-gray-100 text-gray-400 cursor-not-allowed': currentPage === 1,
+      }"
+    >
+      «
+    </button>
+
+    <!-- Previous Page Button -->
     <button
       @click="changePage(currentPage - 1)"
       :disabled="currentPage === 1"
-      class="px-4 py-2 bg-gray-200 text-gray-600 rounded-lg shadow hover:bg-gray-300 transition duration-300 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
+      class="px-4 py-2 rounded-lg shadow transition duration-300"
+      :class="{
+        'bg-gray-200 text-gray-600 hover:bg-gray-300': currentPage !== 1,
+        'bg-gray-100 text-gray-400 cursor-not-allowed': currentPage === 1,
+      }"
     >
-      {{ $t('previous') }}
+      ‹
     </button>
+
+    <!-- Dynamic Page Numbers -->
     <button
-      v-for="page in totalPages"
+      v-for="page in visiblePages"
       :key="page"
       @click="changePage(page)"
       class="px-4 py-2 rounded-lg shadow transition duration-300"
@@ -232,182 +268,31 @@ watch(
     >
       {{ page }}
     </button>
+
+    <!-- Next Page Button -->
     <button
       @click="changePage(currentPage + 1)"
       :disabled="currentPage === totalPages"
-      class="px-4 py-2 bg-gray-200 text-gray-600 rounded-lg shadow hover:bg-gray-300 transition duration-300 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
+      class="px-4 py-2 rounded-lg shadow transition duration-300"
+      :class="{
+        'bg-gray-200 text-gray-600 hover:bg-gray-300': currentPage !== totalPages,
+        'bg-gray-100 text-gray-400 cursor-not-allowed': currentPage === totalPages,
+      }"
     >
-      {{ $t('next') }}
+      ›
+    </button>
+
+    <!-- Last Page Button -->
+    <button
+      @click="changePage(totalPages)"
+      :disabled="currentPage === totalPages"
+      class="px-4 py-2 rounded-lg shadow transition duration-300"
+      :class="{
+        'bg-gray-200 text-gray-600 hover:bg-gray-300': currentPage !== totalPages,
+        'bg-gray-100 text-gray-400 cursor-not-allowed': currentPage === totalPages,
+      }"
+    >
+      »
     </button>
   </div>
 </template>
-
-<!-- <script setup>
-import axios from 'axios'
-import { inject, reactive, watch, ref, onMounted } from 'vue'
-import CardList from '../components/CardList.vue'
-import debounce from 'lodash.debounce'
-const { cart, addToCart, removeFromCart } = inject('cart')
-
-const items = ref([])
-
-const filters = reactive({
-  sortBy: '',
-  searchQuery: '',
-})
-
-const onClickAddPlus = (item) => {
-  if (!item.isAdded) {
-    addToCart(item)
-  } else {
-    removeFromCart(item)
-  }
-
-  console.log(cart)
-}
-
-const onChangeSelect = (event) => {
-  filters.sortBy = event.target.value
-}
-
-const onChangeSearchInput = debounce((event) => {
-  filters.searchQuery = event.target.value
-}, 500)
-
-const addToFavorite = async (item) => {
-  try {
-    if (!item.isFavorite) {
-      const obj = {
-        item_id: item.id,
-      }
-      item.isFavorite = true
-      const { data } = await axios.post(`https://bec8d07c9da99357.mokky.dev/favorites`, obj)
-
-      item.favoriteId = data.id
-    } else {
-      item.isFavorite = false
-      await axios.delete(`https://bec8d07c9da99357.mokky.dev/favorites/${item.favoriteId}`)
-      item.favoriteId = null
-    }
-  } catch (error) {
-    console.log(error)
-  }
-}
-
-const fetchFavorites = async () => {
-  try {
-    const { data: favorites } = await axios.get(`https://bec8d07c9da99357.mokky.dev/favorites`)
-    items.value = items.value.map((item) => {
-      const favorite = favorites.find((favorite) => favorite.item_id === item.id)
-
-      if (!favorite) {
-        return item
-      }
-
-      return {
-        ...item,
-        isFavorite: true,
-        favoriteId: favorite.id,
-      }
-    })
-  } catch (error) {
-    console.log(error)
-  }
-
-  console.log(items.value)
-}
-
-const fetchItems = async () => {
-  try {
-    const params = {
-      sortBy: filters.sortBy,
-    }
-
-    if (filters.searchQuery) {
-      params.title = `*${filters.searchQuery}*`
-    }
-    const { data } = await axios.get(`https://bec8d07c9da99357.mokky.dev/items`, {
-      params,
-    })
-    items.value = data.map((obj) => ({
-      ...obj,
-      isFavorite: false,
-      favoriteId: null,
-      isAdded: false,
-    }))
-  } catch (error) {
-    console.log(error)
-  }
-}
-
-onMounted(async () => {
-  const localCart = localStorage.getItem('cart')
-  cart.value = localCart ? JSON.parse(localCart) : []
-
-  await fetchItems()
-  await fetchFavorites()
-
-  // Төменге жазылды мән бер
-  items.value = items.value.map((item) => ({
-    ...item,
-    isAdded: cart.value.some((cartItem) => cartItem.id === item.id),
-  }))
-})
-
-watch(cart, () => {
-  items.value = items.value.map((item) => ({
-    ...item,
-    isAdded: false,
-  }))
-})
-
-watch(filters, fetchItems)
-</script>
-
-<template>
-
-  <div class="p-6 sm:p-8">
-    <div class="flex flex-wrap justify-between items-center mb-12 gap-6">
-      <h2 class="text-2xl sm:text-3xl font-bold text-gray-800 tracking-wide">Все кроссовки</h2>
-
-      <div class="flex flex-wrap gap-4 w-full sm:w-auto">
-        <div class="relative w-full sm:w-auto">
-          <select
-            @change="onChangeSelect"
-            class="w-full px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg shadow-sm appearance-none focus:ring-2 focus:ring-lime-400 focus:outline-none transition duration-300"
-          >
-            <option value="" disabled selected hidden>Сортировать по:</option>
-            <option value="name">По названию</option>
-            <option value="-price">По цене (дорогие)</option>
-            <option value="price">По цене (дешевые)</option>
-          </select>
-
-          <img
-            class="absolute top-1/2 right-3 transform -translate-y-1/2 w-4 h-4 pointer-events-none"
-            src="/drop-down-icon.png"
-            alt="Dropdown Arrow"
-          />
-        </div>
-
-        <div class="relative w-full sm:w-64 lg:w-72">
-          <img
-            class="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 opacity-60"
-            src="/search.svg"
-            alt="Search"
-          />
-          <input
-            @input="onChangeSearchInput"
-            class="w-full border border-gray-300 rounded-full py-2 pl-12 pr-4 outline-none focus:ring-2 focus:ring-lime-400 focus:border-transparent transition duration-300 shadow-sm"
-            type="text"
-            placeholder="Поиск..."
-          />
-        </div>
-      </div>
-    </div>
-  </div>
-
-
-  <div class="mt-2">
-    <CardList :items="items" @add-to-favorite="addToFavorite" @add-to-cart="onClickAddPlus" />
-  </div>
-</template> -->
